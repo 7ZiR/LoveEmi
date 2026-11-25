@@ -81,11 +81,7 @@
     color: var(--text-muted);
   }
 
-  .accent {
-    color: var(--accent);
-    font-style: italic;
-    position: relative;
-  }
+  .accent { color: var(--accent); font-style: italic; position: relative; }
 
   p {
     font-family: 'Montserrat', sans-serif;
@@ -139,9 +135,7 @@
     box-shadow: 0 10px 30px var(--accent-glow);
   }
 
-  .btn:hover::before {
-    transform: scaleX(1);
-  }
+  .btn:hover::before { transform: scaleX(1); }
 
   .svg-icon {
     width: 60px; height: 60px;
@@ -152,9 +146,7 @@
     filter: drop-shadow(0 0 15px var(--accent-glow));
   }
   
-  .heart-pulse {
-    animation: heartPulse 3s infinite cubic-bezier(0.4, 0, 0.2, 1);
-  }
+  .heart-pulse { animation: heartPulse 3s infinite cubic-bezier(0.4, 0, 0.2, 1); }
 
   @keyframes heartPulse {
     0%, 100% { transform: scale(1); }
@@ -208,14 +200,8 @@
   }
   .score-board span { color: var(--accent); font-weight: 400; }
 
-  .victory-text {
-    animation: fadeInUp 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-    padding: 30px;
-  }
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+  .victory-text { animation: fadeInUp 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; padding: 30px; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
@@ -229,7 +215,7 @@
     <h1>Привет, <span class="accent">Эми</span></h1>
     <div class="divider"></div>
     <p>Я очень долго думал, как передать тебе то, что чувствую. Словами это сделать сложно. Поэтому я сделал для тебя это маленькое путешествие. Просто листай дальше.</p>
-    <button class="btn" onclick="nextStage(2)">Начать</button>
+    <button class="btn" onclick="initAudio(); nextStage(2)">Начать</button>
   </div>
 </div>
 
@@ -239,7 +225,7 @@
     <h1>Моя <span class="accent">маленькая</span></h1>
     <div class="divider"></div>
     <p>Всё вокруг становится теплее, когда ты рядом. Ты согреваешь меня даже в самые пасмурные дни. И я хочу, чтобы ты всегда об этом знала.</p>
-    <button class="btn" onclick="nextStage(3)">Дальше</button>
+    <button class="btn" onclick="playClick(); nextStage(3)">Дальше</button>
   </div>
 </div>
 
@@ -248,7 +234,7 @@
     <h1>Моя любимая <span class="accent">кисонька</span></h1>
     <div class="divider"></div>
     <p>Я обожаю твой смех, твой взгляд. Каждый день рядом с тобой — это подарок. Ты моя зайка.</p>
-    <button class="btn" onclick="nextStage(4)">Продолжить</button>
+    <button class="btn" onclick="playClick(); nextStage(4)">Продолжить</button>
   </div>
 </div>
 
@@ -258,7 +244,7 @@
     <h1 style="font-size: clamp(56px, 16vw, 100px); line-height: 1;">Сильно <span class="accent">люблю</span></h1>
     <div class="divider"></div>
     <p>И сейчас я хочу доказать это тебе.</p>
-    <button class="btn" id="btn-heart" onclick="startHeartAnimation()">Показать</button>
+    <button class="btn" id="btn-heart" onclick="playClick(); startHeartAnimation()">Показать</button>
   </div>
 </div>
 
@@ -270,6 +256,180 @@
 </div>
 
 <script>
+// ==========================================
+// АУДИО-ДВИЖОК
+// ==========================================
+let audioCtx;
+let ambientGain;
+let isAudioInit = false;
+
+function initAudio() {
+  if (isAudioInit) return;
+  isAudioInit = true;
+  
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  ambientGain = audioCtx.createGain();
+  ambientGain.gain.value = 0.1; 
+  ambientGain.connect(audioCtx.destination);
+  
+  startAmbient();
+}
+
+function startAmbient() {
+  const bassOsc = audioCtx.createOscillator();
+  const bassGain = audioCtx.createGain();
+  bassOsc.type = 'sine';
+  bassOsc.frequency.value = 55; 
+  bassGain.gain.value = 0.5;
+  bassOsc.connect(bassGain);
+  bassGain.connect(ambientGain);
+  bassOsc.start();
+  
+  const notes = [220.00, 261.63, 329.63, 392.00]; 
+  
+  notes.forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    filter.type = 'lowpass';
+    filter.frequency.value = 800;
+    
+    gain.gain.value = 0;
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 2 + i);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ambientGain);
+    osc.start();
+    
+    setInterval(() => {
+      const now = audioCtx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(0.15, now + 4);
+      gain.gain.linearRampToValueAtTime(0.02, now + 8);
+    }, 8000 + Math.random() * 4000);
+  });
+}
+
+function playClick() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+  gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.1);
+}
+
+// ==========================================
+// ОБНОВЛЁННЫЙ ЗВУК ВЗРЫВА (АТМОСФЕРНЫЙ И МЯГКИЙ)
+// ==========================================
+function playExplosion() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+
+  // 1. Кинематографичный низкий гул (тёплый и мягкий)
+  const subOsc = audioCtx.createOscillator();
+  const subGain = audioCtx.createGain();
+  subOsc.type = 'triangle'; // Треугольная волна звучит органичнее и теплее синуса
+  subOsc.frequency.setValueAtTime(60, now);
+  subOsc.frequency.exponentialRampToValueAtTime(25, now + 4); // Глубокое, медленное затухание
+  
+  subGain.gain.setValueAtTime(0, now);
+  subGain.gain.linearRampToValueAtTime(0.25, now + 0.15); // Мягкая атака без цифрового щелчка
+  subGain.gain.exponentialRampToValueAtTime(0.001, now + 4);
+  
+  const subFilter = audioCtx.createBiquadFilter();
+  subFilter.type = 'lowpass';
+  subFilter.frequency.value = 200; // Убираем любую возможную резкость
+  
+  subOsc.connect(subFilter);
+  subFilter.connect(subGain);
+  subGain.connect(audioCtx.destination);
+  subOsc.start(now);
+  subOsc.stop(now + 4);
+
+  // 2. Органичный шум разлетающейся пыли (коричневый шум вместо белого)
+  const bufferSize = audioCtx.sampleRate * 4; 
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  
+  let lastOut = 0;
+  for (let i = 0; i < bufferSize; i++) {
+    const white = Math.random() * 2 - 1;
+    data[i] = (lastOut + (0.02 * white)) / 1.02;
+    lastOut = data[i];
+    data[i] *= 3.5; // Компенсация громкости коричневого шума
+  }
+  
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'lowpass';
+  noiseFilter.frequency.setValueAtTime(300, now); // Начинаем низко, как глубокий вздох
+  noiseFilter.frequency.linearRampToValueAtTime(600, now + 0.6); // Лёгкий "расцвет"
+  noiseFilter.frequency.exponentialRampToValueAtTime(80, now + 3.5); // Плавное растворение
+  
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0, now);
+  noiseGain.gain.linearRampToValueAtTime(0.15, now + 0.2); // Очень мягкая атака
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 4);
+  
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+  noise.start(now);
+  noise.stop(now + 4);
+
+  // 3. Пространственное эхо (эффект огромного, тёмного пространства)
+  const delay = audioCtx.createDelay();
+  delay.delayTime.value = 0.35;
+  const feedback = audioCtx.createGain();
+  feedback.gain.value = 0.25; // Тише, чтобы не забивать основной звук
+  
+  const delayFilter = audioCtx.createBiquadFilter();
+  delayFilter.type = 'lowpass';
+  delayFilter.frequency.value = 300; // Эхо быстро теряет высокие частоты, как в реальности
+  
+  delay.connect(delayFilter);
+  delayFilter.connect(feedback);
+  feedback.connect(delay);
+  
+  subGain.connect(delay);
+  noiseGain.connect(delay);
+  delay.connect(audioCtx.destination);
+}
+
+function playCatch() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.1);
+}
+
+// ==========================================
+// ЛОГИКА
+// ==========================================
 function nextStage(num) {
   document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
   document.getElementById('stage-' + num).classList.add('active');
@@ -289,13 +449,7 @@ resize();
 
 const dust = [];
 for (let i = 0; i < 40; i++) {
-  dust.push({
-    x: Math.random() * W, y: Math.random() * H,
-    r: Math.random() * 1.5 + 0.5,
-    vx: (Math.random() - 0.5) * 0.2,
-    vy: (Math.random() - 0.5) * 0.2,
-    alpha: Math.random() * 0.5 + 0.1
-  });
+  dust.push({ x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.5+0.5, vx: (Math.random()-0.5)*0.2, vy: (Math.random()-0.5)*0.2, alpha: Math.random()*0.5+0.1 });
 }
 
 function animateBg() {
@@ -311,9 +465,6 @@ function animateBg() {
 }
 animateBg();
 
-// ==========================================
-// СЕРДЦЕ + ВЕЧНЫЕ ЗВЕЗДЫ
-// ==========================================
 let heartAnimStarted = false;
 let animFrame;
 
@@ -339,58 +490,46 @@ function startHeartAnimation() {
     const t = (i / count) * Math.PI * 2;
     const hx = 16 * Math.pow(Math.sin(t), 3);
     const hy = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
-    
     const tx = cx + hx * scale;
     const ty = cy + hy * scale;
-    
     const angle = Math.random() * Math.PI * 2;
     const radius = Math.max(W, H) * 0.8;
     
     particles.push({
-      x: cx + Math.cos(angle) * radius,
-      y: cy + Math.sin(angle) * radius,
+      x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius,
       tx: tx, ty: ty,
       word: words[i % words.length],
       size: Math.random() * 3 + 9,
       color: Math.random() > 0.3 ? 'rgba(255, 255, 255, 0.85)' : 'rgba(229, 159, 169, 0.9)',
-      opacity: 0,
-      phase: Math.random() * Math.PI * 2
+      opacity: 0, phase: Math.random() * Math.PI * 2
     });
   }
 
-  // МАССИВНЫЙ, ВЕЧНЫЙ ВЗРЫВ
   const explosionParticles = [];
-  // Огромное количество мелких частиц
   const explosionCount = window.innerWidth < 600 ? 400 : 800; 
   
   for (let i = 0; i < explosionCount; i++) {
     const angle = Math.random() * Math.PI * 2;
-    // Разная скорость
     const speed = Math.random() * 15 + 2; 
-    
     explosionParticles.push({
       x: cx, y: cy,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      // Крошечный размер (0.5 - 1.5 пикселя)
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
       size: Math.random() * 1 + 0.5, 
-      // Прозрачность (чтобы не отвлекали)
       baseOpacity: Math.random() * 0.5 + 0.1, 
       color: Math.random() > 0.6 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(229, 159, 169, 0.8)',
-      twinkleSpeed: Math.random() * 2 + 1,
-      phase: Math.random() * Math.PI * 2
+      twinkleSpeed: Math.random() * 2 + 1, phase: Math.random() * Math.PI * 2
     });
   }
 
   let state = 'gather';
   let progress = 0;
   let beatTime = 0;
+  
+  let shakeIntensity = 0;
 
   function draw() {
-    // Очень прозрачный шлейф, чтобы не было черных хвостов
     ctx.fillStyle = 'rgba(7, 7, 10, 0.1)';
     ctx.fillRect(0, 0, W, H);
-    
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
@@ -398,12 +537,24 @@ function startHeartAnimation() {
       progress += 0.006;
       const ease = 1 - Math.pow(1 - progress, 4);
       
+      if (progress > 0.7) {
+        const shakeFactor = (progress - 0.7) / 0.3;
+        shakeIntensity = shakeFactor * 5;
+      } else {
+        shakeIntensity = 0;
+      }
+
+      if (shakeIntensity > 0) {
+        ctx.save();
+        const dx = (Math.random() - 0.5) * shakeIntensity;
+        const dy = (Math.random() - 0.5) * shakeIntensity;
+        ctx.translate(dx, dy);
+      }
+      
       particles.forEach(p => {
         if (p.opacity < 1) p.opacity += 0.02;
-        
         const dx = p.tx - p.x;
         const dy = p.ty - p.y;
-        
         p.x += dx * ease * 0.08 + Math.cos(p.phase + progress * 15) * (1 - progress) * 5;
         p.y += dy * ease * 0.08 + Math.sin(p.phase + progress * 15) * (1 - progress) * 5;
         
@@ -413,34 +564,24 @@ function startHeartAnimation() {
         ctx.fillText(p.word, p.x, p.y);
       });
       
+      if (shakeIntensity > 0) ctx.restore();
+      
       if (progress >= 1) {
         state = 'explode';
+        playExplosion(); 
       }
     } 
     else if (state === 'explode' || state === 'beat') {
-      
-      // 1. РИСУЕМ ВЕЧНЫЕ ЗВЕЗДЫ (ФОН)
       explosionParticles.forEach(ep => {
-        // Движение с очень слабым трением
-        ep.x += ep.vx;
-        ep.y += ep.vy;
-        ep.vx *= 0.995; 
-        ep.vy *= 0.995;
-        
-        // Мерцание (звезды дышат)
+        ep.x += ep.vx; ep.y += ep.vy;
+        ep.vx *= 0.995; ep.vy *= 0.995;
         const twinkle = 0.5 + Math.sin(performance.now() * 0.002 * ep.twinkleSpeed + ep.phase) * 0.5;
-        
         ctx.globalAlpha = ep.baseOpacity * twinkle;
         ctx.fillStyle = ep.color;
-        
-        ctx.beginPath();
-        ctx.arc(ep.x, ep.y, ep.size, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(ep.x, ep.y, ep.size, 0, Math.PI * 2); ctx.fill();
       });
 
-      // 2. РИСУЕМ СЕРДЦЕ (ПЕРЕДНИЙ ПЛАН)
       if (state === 'explode') {
-        // Статичное сердце после сборки
         particles.forEach(p => {
           ctx.globalAlpha = 1; 
           ctx.fillStyle = p.color;
@@ -448,7 +589,6 @@ function startHeartAnimation() {
           ctx.fillText(p.word, p.tx, p.ty);
         });
         
-        // Ждем 2 секунды после начала взрыва и переходим к биению
         setTimeout(() => {
           if (state === 'explode') {
             state = 'beat';
@@ -457,11 +597,9 @@ function startHeartAnimation() {
         }, 2000);
       } 
       else if (state === 'beat') {
-        // Бьющееся сердце
         beatTime += 0.025;
         const beat = 1 + Math.sin(beatTime) * 0.02 + Math.max(0, Math.sin(beatTime * 2.5)) * 0.015;
         
-        // Легкая аура
         const gradient = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.min(W, H) * 0.5);
         gradient.addColorStop(0, `rgba(229, 159, 169, ${0.05 + Math.sin(beatTime)*0.03})`);
         gradient.addColorStop(1, 'rgba(7, 7, 10, 0)');
@@ -469,11 +607,8 @@ function startHeartAnimation() {
         ctx.fillRect(0, 0, W, H);
         
         particles.forEach(p => {
-          const dx = p.tx - cx;
-          const dy = p.ty - cy;
-          const bx = cx + dx * beat;
-          const by = cy + dy * beat;
-          
+          const dx = p.tx - cx; const dy = p.ty - cy;
+          const bx = cx + dx * beat; const by = cy + dy * beat;
           ctx.globalAlpha = 1;
           ctx.fillStyle = p.color;
           ctx.font = `200 ${p.size}px 'Montserrat', sans-serif`;
@@ -481,11 +616,9 @@ function startHeartAnimation() {
         });
       }
     }
-    
     ctx.globalAlpha = 1;
     animFrame = requestAnimationFrame(draw);
   }
-  
   draw();
 }
 
@@ -495,84 +628,55 @@ function showContinueButton() {
   btn.id = 'btn-play';
   btn.innerText = 'Дальше';
   btn.style.position = 'fixed';
-  btn.style.bottom = '50px';
-  btn.style.left = '50%';
+  btn.style.bottom = '50px'; btn.style.left = '50%';
   btn.style.transform = 'translateX(-50%)';
-  btn.style.zIndex = '100';
-  btn.style.opacity = '0';
+  btn.style.zIndex = '100'; btn.style.opacity = '0';
   btn.style.transition = 'opacity 1.5s ease';
-  
   btn.onclick = () => {
     cancelAnimationFrame(animFrame);
     ctx.clearRect(0, 0, W, H);
     nextStage(5); 
   };
-  
   document.body.appendChild(btn);
   setTimeout(() => btn.style.opacity = '1', 1500);
 }
 
-// ==========================================
-// ИГРА
-// ==========================================
 let score = 0;
 const targetScore = 10;
 let gameInterval;
-
 const heartSVG = `<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
 
 function startGame() {
   const btnPlay = document.getElementById('btn-play');
-  if (btnPlay) {
-    btnPlay.style.opacity = '0';
-    setTimeout(() => btnPlay.remove(), 500);
-  }
-
+  if (btnPlay) { btnPlay.style.opacity = '0'; setTimeout(() => btnPlay.remove(), 500); }
   const area = document.getElementById('game-area');
   const scoreEl = document.getElementById('score');
-  
-  score = 0;
-  scoreEl.innerText = score;
+  score = 0; scoreEl.innerText = score;
   clearInterval(gameInterval);
   
   gameInterval = setInterval(() => {
     if (score >= targetScore) return; 
-
     const heart = document.createElement('div');
-    heart.className = 'game-heart';
-    heart.innerHTML = heartSVG;
-    
+    heart.className = 'game-heart'; heart.innerHTML = heartSVG;
     const x = Math.random() * (area.clientWidth - 46);
     const y = Math.random() * (area.clientHeight - 46);
-    heart.style.left = x + 'px';
-    heart.style.top = y + 'px';
+    heart.style.left = x + 'px'; heart.style.top = y + 'px';
     
     heart.onclick = (e) => {
-      e.stopPropagation();
-      heart.style.transform = 'scale(1.4)';
-      heart.style.opacity = '0';
+      e.stopPropagation(); playCatch();
+      heart.style.transform = 'scale(1.4)'; heart.style.opacity = '0';
       heart.style.transition = 'all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)';
       setTimeout(() => heart.remove(), 600);
-      
-      score++;
-      scoreEl.innerText = score;
-      
-      if (score >= targetScore) {
-        clearInterval(gameInterval);
-        winGame();
-      }
+      score++; scoreEl.innerText = score;
+      if (score >= targetScore) { clearInterval(gameInterval); winGame(); }
     };
-    
     area.appendChild(heart);
-    
     setTimeout(() => {
       if (heart.parentNode) {
-        heart.style.opacity = '0';
-        heart.style.transition = 'opacity 1s ease';
+        heart.style.opacity = '0'; heart.style.transition = 'opacity 1s ease';
         setTimeout(() => heart.remove(), 1000);
       }
     }, 3500); 
-    
   }, 1100); 
 }
 
@@ -582,12 +686,8 @@ function winGame() {
     <div class="victory-text" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%;">
       <h2 style="font-family: 'Cormorant Garamond', serif; font-size:38px; color:var(--text-main); text-transform: none; letter-spacing: 0; margin-bottom: 20px; font-style: italic;">Ты поймала все</h2>
       <p style="color:var(--text-muted); font-size:15px; margin-bottom: 30px;">Но знаешь, что самое главное?</p>
-      <div class="svg-icon heart-pulse" style="margin-bottom: 25px; width: 50px; height: 50px;">
-         ${heartSVG}
-      </div>
-      <p style="color:var(--text-main); font-size:18px; font-weight: 300; line-height: 1.8;">
-        Ты давно поймала моё.<br>Оно твоё. Навсегда.
-      </p>
+      <div class="svg-icon heart-pulse" style="margin-bottom: 25px; width: 50px; height: 50px;">${heartSVG}</div>
+      <p style="color:var(--text-main); font-size:18px; font-weight: 300; line-height: 1.8;">Ты давно поймала моё.<br>Оно твоё. Навсегда.</p>
     </div>
   `;
 }
